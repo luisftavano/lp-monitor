@@ -188,20 +188,74 @@ def report(r, title):
     return "\n".join(lines)
 
 
-STATUS_MSG = {
-    "out_range": "🔴 FORA DA FAIXA — você parou de ganhar taxas. Avalie tirar ou reposicionar.",
-    "near_edge": f"🟡 PERTO DA BORDA — preço a menos de {EDGE_PCT:g}% do limite da faixa.",
-    "in_range": "🟢 De volta à faixa — ganhando taxas normalmente.",
-}
+REMINDER_HOURS = 6
 
 
-def run_test():
-    w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={"timeout": 30}))
-    block = w3.eth.block_number
-    print(f"Base conectada, bloco {block}")
-    send_alert(f"✅ LP Monitor conectado!\nBase OK (bloco {block}).\n"
-                  + (f"Monitorando posição #{POSITION_ID}." if POSITION_ID
-                     else "Nenhuma posição configurada ainda."))
+def uni_link():
+    return f"https://app.uniswap.org/positions/v3/base/{POSITION_ID}"
+
+
+def suggested_range(r):
+    """Nova faixa com a mesma largura da atual, centrada no preço de agora."""
+    center_old = (r["lower"] * r["upper"]) ** 0.5
+    half = (r["upper"] / center_old) - 1          # ex: 0.025 = ±2,5%
+    return r["price"] * (1 - half), r["price"] * (1 + half), half * 100
+
+
+def msg_out_of_range(r, reminder_hours=None):
+    lo, hi, pct = suggested_range(r)
+    if r["price"] > r["upper"]:
+        what = (f"📈 {r['base']} SUBIU acima da faixa.\n"
+                f"Sua posição virou 100% {r['quote']} (você vendeu {r['base']} no caminho).")
+        swap = f"troque ~metade do {r['quote']} por {r['base']}"
+    else:
+        what = (f"📉 {r['base']} CAIU abaixo da faixa.\n"
+                f"Sua posição virou 100% {r['base']} (você comprou {r['base']} no caminho).")
+        swap = f"troque ~metade do {r['base']} por {r['quote']}"
+    head = ("🔴 FORA DA FAIXA — parou de ganhar taxas." if reminder_hours is None
+            else f"⏰ Lembrete: fora da faixa há ~{reminder_hours}h, sem render.")
+    return "\n".join([
+        head, "", what, "",
+        report(r, "Situação agora:"), "",
+        "O QUE FAZER (se quiser reposicionar):",
+        f"1. Abra: {uni_link()}",
+        "2. Remover liquidez → 100% (isso já coleta as taxas)",
+        f"3. Na Uniswap, {swap}",
+        f"4. Nova posição {r['base']}/{r['quote']}, mesma taxa de pool",
+        f"   Faixa sugerida (±{fmt(pct, 1)}%): {fmt(lo)} – {fmt(hi)}",
+        "5. Atualize o monitor no Terminal (pasta lp-monitor):",
+        "   gh variable set POSITION_ID --body \"NOVO_ID\"",
+        "   gh variable set INITIAL_BASE --body \"QTD_BTC\"",
+        "   gh variable set INITIAL_QUOTE --body \"QTD_USDC\"",
+        "",
+        "Ou espere: se o preço voltar pra faixa, ela volta a render sozinha, sem custo.",
+    ])
+
+
+def msg_near_edge(r):
+    side = "de cima" if (r["upper"] - r["price"]) < (r["price"] - r["lower"]) else "de baixo"
+    return "\n".join([
+        f"🟡 ATENÇÃO — preço a menos de {EDGE_PCT:g}% da borda {side} da faixa.",
+        "Ainda está rendendo. Nada a fazer agora, só fique de olho.", "",
+        report(r, "Situação agora:")])
+
+
+def msg_back_in_range(r):
+    return "\n".join([
+        "🟢 VOLTOU PRA FAIXA — rendendo taxas de novo. Nada a fazer.", "",
+        report(r, "Situação agora:")])
+
+
+def msg_il(r, bad):
+    if bad:
+        return "\n".join([
+            "⚠️ A perda impermanente passou das taxas acumuladas.",
+            "Hoje você estaria um pouco melhor só segurando os tokens.",
+            "Não é emergência: se o preço voltar pro meio da faixa, isso melhora.",
+            "Se quiser sair: Remover liquidez → 100% em", uni_link(), "",
+            report(r, "Situação agora:")])
+    return "\n".join(["✅ As taxas voltaram a superar a perda impermanente.", "",
+                       report(r, "Situação agora:")])
 
 
 def main():
@@ -212,36 +266,49 @@ def main():
         print("Nenhuma posição configurada (POSITION_ID vazio). Nada a fazer.")
         return
     state = json.loads(STATE_FILE.read_text()) if STATE_FILE.exists() else {}
+    if state.get("position_id") != POSITION_ID:      # posição nova: zera o estado
+        state = {"position_id": POSITION_ID}
+
     pos, sqrt_price, dec0, dec1, sym0, sym1, fees = fetch_position()
 
     if pos["liquidity"] == 0:
         if state.get("status") != "closed":
-            send_alert(f"⚪ Posição #{POSITION_ID} está sem liquidez (fechada ou retirada).")
+            send_alert(f"⚪ Posição #{POSITION_ID} está sem liquidez (fechada ou retirada).\n"
+                       "Se abriu uma nova, atualize POSITION_ID, INITIAL_BASE e INITIAL_QUOTE.")
         state["status"] = "closed"
         STATE_FILE.write_text(json.dumps(state, indent=2))
         return
 
     r = analyze(pos, sqrt_price, dec0, dec1, sym0, sym1, fees)
+    now = datetime.now(BRT)
     msgs = []
+    prev, cur = state.get("status"), r["status"]
 
-    # 1) Mudança de status (fora / perto da borda / dentro)
-    prev = state.get("status")
-    if r["status"] != prev and not (prev is None and r["status"] == "in_range"):
-        msgs.append(report(r, STATUS_MSG[r["status"]]))
+    # 1) Mudanças de status (só transições que importam, pra não virar spam)
+    if cur == "out_range" and prev != "out_range":
+        msgs.append(msg_out_of_range(r))
+        state["out_since"] = now.isoformat()
+        state["last_reminder"] = now.isoformat()
+    elif cur == "out_range":
+        last = datetime.fromisoformat(state.get("last_reminder", now.isoformat()))
+        if now - last >= timedelta(hours=REMINDER_HOURS):
+            since = datetime.fromisoformat(state.get("out_since", now.isoformat()))
+            msgs.append(msg_out_of_range(r, round((now - since).total_seconds() / 3600)))
+            state["last_reminder"] = now.isoformat()
+    elif prev == "out_range":
+        msgs.append(msg_back_in_range(r))
+    elif cur == "near_edge" and prev == "in_range":
+        msgs.append(msg_near_edge(r))
 
-    # 2) Perda impermanente passou das taxas acumuladas
+    # 2) Perda impermanente vs taxas
     il_bad = r["net"] is not None and r["net"] < 0
-    if il_bad and not state.get("il_bad"):
-        msgs.append(report(r, "⚠️ A perda impermanente já passou das taxas: "
-                              "hoje você estaria melhor só segurando os tokens."))
-    elif not il_bad and state.get("il_bad"):
-        msgs.append(report(r, "✅ As taxas voltaram a superar a perda impermanente."))
+    if il_bad != bool(state.get("il_bad")) and prev is not None:
+        msgs.append(msg_il(r, il_bad))
 
     # 3) Resumo diário
-    now = datetime.now(BRT)
     today = now.strftime("%Y-%m-%d")
     if now.hour == SUMMARY_HOUR and state.get("last_summary") != today and not msgs:
-        msgs.append(report(r, f"📊 Resumo diário — posição #{POSITION_ID}"))
+        msgs.append(report(r, f"📊 Resumo diário — posição #{POSITION_ID}") + f"\n\n{uni_link()}")
         state["last_summary"] = today
 
     for m in msgs:
@@ -249,7 +316,7 @@ def main():
     if not msgs:
         print(report(r, "(sem alertas)"))
 
-    state.update(status=r["status"], il_bad=il_bad)
+    state.update(status=cur, il_bad=il_bad)
     STATE_FILE.write_text(json.dumps(state, indent=2))
 
 
