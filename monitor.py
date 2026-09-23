@@ -258,6 +258,15 @@ def msg_il(r, bad):
                        report(r, "Situação agora:")])
 
 
+def run_test():
+    w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={"timeout": 30}))
+    block = w3.eth.block_number
+    print(f"Base conectada, bloco {block}")
+    send_alert(f"✅ LP Monitor conectado!\nBase OK (bloco {block}).\n"
+               + (f"Monitorando posição #{POSITION_ID}.\n{uni_link()}" if POSITION_ID
+                  else "Nenhuma posição configurada ainda."))
+
+
 def main():
     if MODE == "teste":
         run_test()
