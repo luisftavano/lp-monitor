@@ -1,6 +1,6 @@
 # LP Monitor — Uniswap v3 na Base
 
-Monitora uma posição de liquidez e avisa no WhatsApp (e/ou Telegram) quando:
+Monitora uma posição de liquidez e avisa no WhatsApp quando:
 
 - 🔴 o preço sai da faixa (parou de ganhar taxa)
 - 🟡 o preço chega perto da borda (padrão: 5%)
