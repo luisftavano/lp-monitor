@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git pull --rebase)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(gh run watch:*)",
+      "Bash(gh variable list)",
+      "Bash(python3 -m unittest:*)",
+      "Bash(python3 .claude/skills/defi-lp/scripts/*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(gh variable set:*)",
+      "Bash(gh workflow run:*)",
+      "Bash(gh repo edit:*)"
+    ],
+    "deny": [
+      "Bash(gh secret:*)",
+      "Read(./.env)",
+      "Read(./.env.*)"
+    ]
+  }
+}
