@@ -1,11 +1,11 @@
 # Runbooks
 
 ## Reposicionar (saiu da faixa)
-1. Decidir: esperar (sem custo) ou reposicionar. Posição pequena + faixa estreita:
-   esperar algumas horas pode fazer sentido se o preço estiver logo depois da borda.
+1. Esperar ~6 h fora da faixa antes de mexer (o bot só manda o passo a passo depois
+   de `WAIT_HOURS`). Se o preço voltar, não há nada a fazer.
 2. Uniswap → posição → Remove liquidity 100% (já coleta as taxas).
 3. Swap de ~metade do token que sobrou pelo outro (tokens com ícone da Base).
-4. Nova posição **v3** 0,05%, faixa ±2,5% no preço atual (o alerta do bot já traz a faixa).
+4. Nova posição **v3** 0,05%, faixa ±7,5% no preço atual (o alerta do bot já traz a faixa).
    O bot não lê v4.
 5. Pegar o novo ID (número no fim da URL da posição).
 6. Atualizar o monitor:

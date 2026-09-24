@@ -40,6 +40,9 @@ jobs:
           INITIAL_QUOTE: ${{ vars.INITIAL_QUOTE }}
           EDGE_PCT: ${{ vars.EDGE_PCT || '5' }}
           SUMMARY_HOUR: ${{ vars.SUMMARY_HOUR || '9' }}
+          FEES_ALERT_USD: ${{ vars.FEES_ALERT_USD || '1' }}
+          WAIT_HOURS: ${{ vars.WAIT_HOURS || '6' }}
+          NEW_RANGE_PCT: ${{ vars.NEW_RANGE_PCT || '7.5' }}
           WHATSAPP_PHONE: ${{ secrets.WHATSAPP_PHONE }}
           CALLMEBOT_APIKEY: ${{ secrets.CALLMEBOT_APIKEY }}
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}

@@ -26,6 +26,8 @@ FEES_ALERT_USD = float(os.getenv("FEES_ALERT_USD", "1"))  # avisa quando taxas p
 SUMMARY_HOUR = int(os.getenv("SUMMARY_HOUR", "9"))  # hora do resumo diário (Brasília)
 INITIAL_BASE = os.getenv("INITIAL_BASE")         # qtd do token volátil depositada (ex: BTC)
 INITIAL_QUOTE = os.getenv("INITIAL_QUOTE")       # qtd da stable depositada (ex: USDC)
+WAIT_HOURS = float(os.getenv("WAIT_HOURS", "6"))  # horas fora da faixa antes de mandar reposicionar
+NEW_RANGE_PCT = float(os.getenv("NEW_RANGE_PCT", "7.5"))  # meia-largura da faixa sugerida (±%)
 STATE_FILE = Path(__file__).parent / "state.json"
 
 NPM = "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1"      # Uniswap v3 PositionManager (Base)
@@ -197,24 +199,39 @@ def uni_link():
 
 
 def suggested_range(r):
-    """Nova faixa com a mesma largura da atual, centrada no preço de agora."""
-    center_old = (r["lower"] * r["upper"]) ** 0.5
-    half = (r["upper"] / center_old) - 1          # ex: 0.025 = ±2,5%
-    return r["price"] * (1 - half), r["price"] * (1 + half), half * 100
+    """Nova faixa de ±NEW_RANGE_PCT centrada no preço de agora."""
+    half = NEW_RANGE_PCT / 100
+    return r["price"] * (1 - half), r["price"] * (1 + half), NEW_RANGE_PCT
 
 
-def msg_out_of_range(r, reminder_hours=None):
-    lo, hi, pct = suggested_range(r)
+def out_side(r):
+    """(o que aconteceu, qual swap fazer pra voltar a ~50/50)."""
     if r["price"] > r["upper"]:
-        what = (f"📈 {r['base']} SUBIU acima da faixa.\n"
-                f"Sua posição virou 100% {r['quote']} (você vendeu {r['base']} no caminho).")
-        swap = f"troque ~metade do {r['quote']} por {r['base']}"
-    else:
-        what = (f"📉 {r['base']} CAIU abaixo da faixa.\n"
-                f"Sua posição virou 100% {r['base']} (você comprou {r['base']} no caminho).")
-        swap = f"troque ~metade do {r['base']} por {r['quote']}"
-    head = ("🔴 FORA DA FAIXA — parou de ganhar taxas." if reminder_hours is None
-            else f"⏰ Lembrete: fora da faixa há ~{reminder_hours}h, sem render.")
+        return (f"📈 {r['base']} SUBIU acima da faixa.\n"
+                f"Sua posição virou 100% {r['quote']} (você vendeu {r['base']} no caminho).",
+                f"troque ~metade do {r['quote']} por {r['base']}")
+    return (f"📉 {r['base']} CAIU abaixo da faixa.\n"
+            f"Sua posição virou 100% {r['base']} (você comprou {r['base']} no caminho).",
+            f"troque ~metade do {r['base']} por {r['quote']}")
+
+
+def msg_out_of_range_wait(r):
+    """Primeiro aviso: saiu da faixa, mas ainda não é hora de mexer."""
+    what, _ = out_side(r)
+    return "\n".join([
+        "🟠 FORA DA FAIXA — parou de ganhar taxas, mas NÃO reposicione ainda.", "",
+        what, "",
+        report(r, "Situação agora:"), "",
+        f"A estratégia é esperar {WAIT_HOURS:g}h: muitas vezes o preço volta sozinho",
+        "e reposicionar na hora faz vender na alta / comprar na baixa.",
+        f"Se continuar fora daqui a {WAIT_HOURS:g}h, te mando o passo a passo."])
+
+
+def msg_out_of_range(r, hours_out, reminder=False):
+    lo, hi, pct = suggested_range(r)
+    what, swap = out_side(r)
+    head = (f"⏰ Lembrete: fora da faixa há ~{hours_out}h, sem render." if reminder
+            else f"🔴 Fora da faixa há ~{hours_out}h — hora de reposicionar.")
     return "\n".join([
         head, "", what, "",
         report(r, "Situação agora:"), "",
@@ -288,6 +305,10 @@ def run_test():
                   else "Nenhuma posição configurada ainda."))
 
 
+def now_brt():
+    return datetime.now(BRT)
+
+
 def main():
     if MODE == "teste":
         run_test()
@@ -310,21 +331,29 @@ def main():
         return
 
     r = analyze(pos, sqrt_price, dec0, dec1, sym0, sym1, fees)
-    now = datetime.now(BRT)
+    now = now_brt()
     msgs = []
     prev, cur = state.get("status"), r["status"]
 
     # 1) Mudanças de status (só transições que importam, pra não virar spam)
+    #    Fora da faixa: aviso na hora, passo a passo só depois de WAIT_HOURS, depois lembretes.
     if cur == "out_range" and prev != "out_range":
-        msgs.append(msg_out_of_range(r))
+        msgs.append(msg_out_of_range_wait(r))
         state["out_since"] = now.isoformat()
-        state["last_reminder"] = now.isoformat()
+        state["reposition_sent"] = False
     elif cur == "out_range":
-        last = datetime.fromisoformat(state.get("last_reminder", now.isoformat()))
-        if now - last >= timedelta(hours=REMINDER_HOURS):
-            since = datetime.fromisoformat(state.get("out_since", now.isoformat()))
-            msgs.append(msg_out_of_range(r, round((now - since).total_seconds() / 3600)))
-            state["last_reminder"] = now.isoformat()
+        since = datetime.fromisoformat(state.get("out_since", now.isoformat()))
+        hours_out = (now - since).total_seconds() / 3600
+        if not state.get("reposition_sent"):
+            if hours_out >= WAIT_HOURS:
+                msgs.append(msg_out_of_range(r, round(hours_out)))
+                state["reposition_sent"] = True
+                state["last_reminder"] = now.isoformat()
+        else:
+            last = datetime.fromisoformat(state.get("last_reminder", now.isoformat()))
+            if now - last >= timedelta(hours=REMINDER_HOURS):
+                msgs.append(msg_out_of_range(r, round(hours_out), reminder=True))
+                state["last_reminder"] = now.isoformat()
     elif prev == "out_range":
         msgs.append(msg_back_in_range(r))
     elif cur == "near_edge" and prev == "in_range":

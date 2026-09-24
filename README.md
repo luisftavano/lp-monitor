@@ -34,7 +34,8 @@ Anote:
 2. Em *Settings → Secrets and variables → Actions*:
    - **Secrets**: `WHATSAPP_PHONE` (ex: `+5511999999999`) e `CALLMEBOT_APIKEY`; opcional: `TELEGRAM_TOKEN` e `TELEGRAM_CHAT_ID`
    - **Variables**: `POSITION_ID`, `INITIAL_BASE` (qtd do token volátil),
-     `INITIAL_QUOTE` (qtd da stable). Opcionais: `EDGE_PCT`, `SUMMARY_HOUR`
+     `INITIAL_QUOTE` (qtd da stable). Opcionais: `EDGE_PCT`, `SUMMARY_HOUR`,
+     `WAIT_HOURS` (padrão 6), `NEW_RANGE_PCT` (padrão 7.5)
 3. Na aba *Actions*, abra "LP monitor" e clique em **Run workflow** pra testar.
 
 ## Testar local

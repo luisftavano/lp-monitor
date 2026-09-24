@@ -14,13 +14,17 @@ não tem chave privada e não executa transações.
 ## Configuração (nunca escrever valores sensíveis aqui — o repo é público)
 - Secrets: `WHATSAPP_PHONE`, `CALLMEBOT_APIKEY` (opcional: `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`).
 - Variables: `POSITION_ID`, `INITIAL_BASE`, `INITIAL_QUOTE`, `EDGE_PCT`, `SUMMARY_HOUR`,
-  `FEES_ALERT_USD`. Ver valores atuais com `gh variable list`.
+  `FEES_ALERT_USD`, `WAIT_HOURS`, `NEW_RANGE_PCT`. Ver valores atuais com `gh variable list`.
 - `INITIAL_BASE/QUOTE` = quantidades REALMENTE depositadas (derivar da liquidez on-chain
   se houver dúvida — a tela da Uniswap mostra valores antes do slippage).
 
 ## Estratégia atual (decisões do dono)
-- Faixa ±2,5% em torno do preço; reposicionar quando sair da faixa.
-- Reinvestir taxas junto com o reposicionamento, ou quando passarem de ~US$ 1.
+- Faixa ±7,5% em torno do preço (era ±2,5% até 24/09/2026; backtest de 90 dias mostrou que
+  ±2,5% com reposicionamento imediato reposicionava ~2x/semana e ficava entre as piores).
+- Saiu da faixa: **esperar ~6 h** (`WAIT_HOURS`) antes de reposicionar; se voltar, nada a fazer.
+- Reinvestir taxas junto com o reposicionamento.
+- Refazer a análise com 2–4 semanas de taxas reais (se vierem bem acima da estimativa,
+  faixas mais estreitas esperando 24 h voltam a ser candidatas).
 - Rebalanceamento automático: **não** por enquanto (decidir com dados de algumas semanas).
 
 ## Regras de trabalho

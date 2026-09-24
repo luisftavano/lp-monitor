@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -53,12 +54,12 @@ class TestMath(unittest.TestCase):
         self.assertEqual(r["status"], "out_range")
         self.assertAlmostEqual(r["amt_q"], 0.0)
 
-    def test_suggested_range_keeps_width(self):
+    def test_suggested_range_uses_new_range_pct(self):
         r = self.analyze(90000)
         lo, hi, pct = self.m.suggested_range(r)
-        self.assertAlmostEqual(pct, 2.5, delta=0.1)
-        self.assertLess(lo, 90000)
-        self.assertGreater(hi, 90000)
+        self.assertEqual(pct, 7.5)
+        self.assertAlmostEqual(lo, 90000 * 0.925)
+        self.assertAlmostEqual(hi, 90000 * 1.075)
 
 
 class TestAlerts(unittest.TestCase):
@@ -68,12 +69,15 @@ class TestAlerts(unittest.TestCase):
         self.m.STATE_FILE = Path(self.tmp.name) / "state.json"
         self.sent = []
         self.m.send_alert = self.sent.append
+        self.t0 = datetime(2026, 9, 24, 12, tzinfo=self.m.BRT)
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def tick(self, price, fees=(0, 0)):
+    def tick(self, price, fees=(0, 0), hours=0):
         pos = dict(liquidity=L, tickLower=TL, tickUpper=TU)
+        now = self.t0 + timedelta(hours=hours)
+        self.m.now_brt = lambda: now
         self.m.fetch_position = lambda: (pos, sqrt_x96(price), 6, 8, "USDC", "cbBTC", fees)
         self.m.main()
 
@@ -86,6 +90,33 @@ class TestAlerts(unittest.TestCase):
         self.tick(90000)
         self.tick(90100)
         self.assertEqual(sum("FORA DA FAIXA" in s for s in self.sent), 1)
+
+    def test_out_of_range_waits_before_reposition(self):
+        self.tick(84475)
+        self.tick(90000, hours=0)
+        self.assertTrue(any("NÃO reposicione" in s for s in self.sent))
+        self.tick(90000, hours=5)
+        self.assertFalse(any("hora de reposicionar" in s for s in self.sent))
+        self.tick(90000, hours=6)
+        self.tick(90000, hours=6.2)
+        self.assertEqual(sum("hora de reposicionar" in s for s in self.sent), 1)
+        self.assertTrue(any("±7,5%" in s for s in self.sent))
+
+    def test_reminder_after_reposition_msg(self):
+        self.tick(84475)
+        self.tick(90000, hours=0)
+        self.tick(90000, hours=6)
+        self.tick(90000, hours=11)
+        self.assertFalse(any("Lembrete" in s for s in self.sent))
+        self.tick(90000, hours=12)
+        self.assertEqual(sum("Lembrete" in s for s in self.sent), 1)
+
+    def test_back_before_wait_no_reposition_msg(self):
+        self.tick(84475)
+        self.tick(90000, hours=0)
+        self.tick(84475, hours=3)
+        self.assertTrue(any("VOLTOU" in s for s in self.sent))
+        self.assertFalse(any("hora de reposicionar" in s for s in self.sent))
 
     def test_back_in_range(self):
         self.tick(84475)
