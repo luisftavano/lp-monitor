@@ -138,6 +138,31 @@ class TestAlerts(unittest.TestCase):
         self.assertEqual(state["status"], "in_range")
 
 
+class TestRpcFallback(unittest.TestCase):
+    def test_falls_back_to_next_rpc(self):
+        m = load(RPC_URL="https://ruim.example")
+        tried = []
+
+        def fn(w3):
+            url = w3.provider.endpoint_uri
+            tried.append(url)
+            if url == "https://ruim.example":
+                raise RuntimeError("429 Too Many Requests")
+            return url
+
+        self.assertEqual(m.with_rpc(fn), m.DEFAULT_RPCS[0])
+        self.assertEqual(tried, ["https://ruim.example", m.DEFAULT_RPCS[0]])
+
+    def test_raises_when_all_fail(self):
+        m = load(RPC_URL="")
+
+        def fn(w3):
+            raise RuntimeError("fora do ar")
+
+        with self.assertRaises(RuntimeError):
+            m.with_rpc(fn)
+
+
 class TestModes(unittest.TestCase):
     def test_run_test_exists(self):
         m = load()

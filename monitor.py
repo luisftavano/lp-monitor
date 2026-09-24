@@ -14,7 +14,11 @@ import requests
 from web3 import Web3
 
 # ---------------- Config ----------------
-RPC_URL = os.getenv("RPC_URL", "https://mainnet.base.org")
+# RPCs públicos da Base, tentados em ordem (RPC_URL, se definido, vem primeiro;
+# aceita vários separados por vírgula). O mainnet.base.org devolve 429 com frequência.
+DEFAULT_RPCS = ["https://base-rpc.publicnode.com", "https://mainnet.base.org",
+                "https://base.drpc.org", "https://1rpc.io/base"]
+RPC_URLS = [u.strip() for u in os.getenv("RPC_URL", "").split(",") if u.strip()] + DEFAULT_RPCS
 POSITION_ID = int(os.getenv("POSITION_ID") or 0)
 MODE = os.getenv("MODE", "normal")
 PHONE = os.getenv("WHATSAPP_PHONE", "")          # ex: +5511999999999
@@ -128,8 +132,23 @@ def analyze(pos, sqrt_price_x96, dec0, dec1, sym0, sym1, fees_raw):
 
 
 # ---------------- Blockchain ----------------
+def with_rpc(fn):
+    """Roda fn(w3) no primeiro RPC que responder; se um falhar (429, timeout...), tenta o próximo."""
+    err = None
+    for url in dict.fromkeys(RPC_URLS):
+        try:
+            return fn(Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 30})))
+        except Exception as e:
+            print(f"RPC {url} falhou: {str(e)[:120]}")
+            err = e
+    raise err
+
+
 def fetch_position():
-    w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={"timeout": 30}))
+    return with_rpc(_fetch_position)
+
+
+def _fetch_position(w3):
     npm = w3.eth.contract(address=NPM, abi=NPM_ABI)
     p = npm.functions.positions(POSITION_ID).call()
     pos = dict(token0=p[2], token1=p[3], fee=p[4], tickLower=p[5], tickUpper=p[6],
@@ -297,8 +316,7 @@ def msg_fees(r):
 
 
 def run_test():
-    w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={"timeout": 30}))
-    block = w3.eth.block_number
+    block = with_rpc(lambda w3: w3.eth.block_number)
     print(f"Base conectada, bloco {block}")
     send_alert(f"✅ LP Monitor conectado!\nBase OK (bloco {block}).\n"
                + (f"Monitorando posição #{POSITION_ID}.\n{uni_link()}" if POSITION_ID
