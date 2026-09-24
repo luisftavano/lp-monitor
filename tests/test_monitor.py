@@ -69,7 +69,7 @@ class TestAlerts(unittest.TestCase):
         self.m.STATE_FILE = Path(self.tmp.name) / "state.json"
         self.sent = []
         self.m.send_alert = self.sent.append
-        self.t0 = datetime(2026, 9, 24, 12, tzinfo=self.m.BRT)
+        self.t0 = datetime(2026, 9, 24, 8, tzinfo=self.m.BRT)   # antes do resumo diário
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -131,6 +131,14 @@ class TestAlerts(unittest.TestCase):
         self.tick(84475, fees=(10_000, 0))         # coletou
         self.tick(84475, fees=(1_100_000, 0))
         self.assertEqual(sum("taxas acumuladas" in s for s in self.sent), 2)
+
+    def test_summary_sent_late_once(self):
+        self.t0 = datetime(2026, 9, 25, 7, tzinfo=self.m.BRT)
+        self.tick(84475)                     # 7h: cedo demais
+        self.assertFalse(any("Resumo diário" in s for s in self.sent))
+        self.tick(84475, hours=4)            # 11h: GitHub atrasou, manda mesmo assim
+        self.tick(84475, hours=5)            # 12h: não repete
+        self.assertEqual(sum("Resumo diário" in s for s in self.sent), 1)
 
     def test_state_file_written(self):
         self.tick(84475)

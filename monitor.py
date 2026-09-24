@@ -391,7 +391,9 @@ def main():
 
     # 4) Resumo diário
     today = now.strftime("%Y-%m-%d")
-    if now.hour == SUMMARY_HOUR and state.get("last_summary") != today and not msgs:
+    #    ">=" e não "==": o agendamento do GitHub atrasa horas, então manda na 1ª execução
+    #    a partir de SUMMARY_HOUR em vez de pular o dia.
+    if now.hour >= SUMMARY_HOUR and state.get("last_summary") != today and not msgs:
         msgs.append(report(r, f"📊 Resumo diário — posição #{POSITION_ID}") + f"\n\n{uni_link()}")
         state["last_summary"] = today
 
