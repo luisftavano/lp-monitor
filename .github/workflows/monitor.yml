@@ -2,7 +2,7 @@ name: LP monitor
 
 on:
   schedule:
-    - cron: "*/10 * * * *"   # a cada 10 min (o GitHub atrasa; o Worker em scheduler/ também dispara)
+    - cron: "*/10 * * * *"   # a cada 10 min
   workflow_dispatch:          # botão pra rodar manualmente
     inputs:
       modo:
