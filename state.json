@@ -1,5 +1,6 @@
 {
   "position_id": 6090455,
   "status": "in_range",
-  "il_bad": false
+  "il_bad": false,
+  "fees_alerted": false
 }
