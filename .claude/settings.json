@@ -10,7 +10,8 @@
       "Bash(gh run watch:*)",
       "Bash(gh variable list)",
       "Bash(python3 -m unittest:*)",
-      "Bash(python3 .claude/skills/defi-lp/scripts/*)"
+      "Bash(python3 .claude/skills/defi-lp/scripts/*)",
+      "Bash(python3 ~/.claude/skills/*)"
     ],
     "ask": [
       "Bash(git push:*)",

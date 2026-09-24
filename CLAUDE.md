@@ -29,3 +29,15 @@ não tem chave privada e não executa transações.
 - Não adicionar nada que assine transações ou guarde chave privada sem pedido explícito.
 - Responder em português do Brasil, informal e direto.
 - Para análise de pool/posição, usar a skill `defi-lp`.
+
+## Agentes e rotina
+- `pool-analyst` — situação da posição e ação recomendada agora (só leitura).
+- `strategy-optimizer` — backtest com dados reais e recomendação de parâmetros.
+- `monitor-dev` — mudanças no código do bot (com testes).
+- `risk-reviewer` — obrigatório antes de qualquer coisa que envolva chaves ou transações.
+- `/revisao-semanal` — rotina de toda semana (análise + otimização + relatório em `reports/`).
+- Skills pessoais de apoio (em ~/.claude/skills, de agiprolabs, MIT): lp-math,
+  impermanent-loss, yield-analysis, volatility-modeling, walk-forward-validation,
+  risk-management, defillama-api, coingecko-api.
+- Objetivo: resultado líquido acima de "só segurar". Se os dados mostrarem o contrário,
+  dizer claramente e propor ajuste ou saída.

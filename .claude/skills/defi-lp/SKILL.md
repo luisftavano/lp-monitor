@@ -25,6 +25,7 @@ Especialista na estratégia de LP do usuário: **cbBTC/USDC, Uniswap v3, 0,05%, 
 - `scripts/position_math.py` — dado liquidez, ticks e preço: quantidades, valor,
   valor em cada borda, IL vs. segurar, faixa sugerida.
   Ex.: `python3 .claude/skills/defi-lp/scripts/position_math.py --liquidity 27602164 --tick-lower -67620 --tick-upper -67120 --price 84475 --init-base 0.00011657 --init-quote 10.082643`
+- `scripts/fetch_btc_prices.py` — baixa histórico do BTC (CoinGecko/DefiLlama) em CSV.
 - `scripts/backtest_ranges.py` — recebe um CSV de preços (timestamp,close) e compara
   larguras de faixa: % do tempo na faixa, nº de reposicionamentos, taxas estimadas.
 
