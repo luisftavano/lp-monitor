@@ -1,0 +1,10 @@
+{
+  "name": "lp-monitor-scheduler",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4"
+  }
+}
