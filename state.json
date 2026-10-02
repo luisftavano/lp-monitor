@@ -1,7 +1,9 @@
 {
   "position_id": 6090455,
-  "status": "near_edge",
+  "status": "out_range",
   "il_bad": false,
   "fees_alerted": false,
-  "last_summary": "2026-10-01"
+  "last_summary": "2026-10-01",
+  "out_since": "2026-10-02T10:09:32.917367-03:00",
+  "reposition_sent": false
 }
