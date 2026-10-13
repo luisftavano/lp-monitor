@@ -3,5 +3,5 @@
   "fees_alerted": true,
   "last_summary": "2026-10-12",
   "status": "in_range",
-  "il_bad": false
+  "il_bad": true
 }
