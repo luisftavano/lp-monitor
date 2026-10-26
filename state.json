@@ -5,5 +5,6 @@
   "status": "out_range",
   "il_bad": true,
   "out_since": "2026-10-25T20:44:57.872132-03:00",
-  "reposition_sent": false
+  "reposition_sent": true,
+  "last_reminder": "2026-10-26T04:04:15.018234-03:00"
 }
