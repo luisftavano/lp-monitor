@@ -14,7 +14,7 @@ não tem chave privada e não executa transações.
 ## Configuração (nunca escrever valores sensíveis aqui — o repo é público)
 - Secrets: `WHATSAPP_PHONE`, `CALLMEBOT_APIKEY` (opcional: `TELEGRAM_TOKEN`, `TELEGRAM_CHAT_ID`).
 - Variables: `POSITION_ID`, `INITIAL_BASE`, `INITIAL_QUOTE`, `EDGE_PCT`, `SUMMARY_HOUR`,
-  `FEES_ALERT_USD`, `WAIT_HOURS`, `NEW_RANGE_PCT`. Ver valores atuais com `gh variable list`.
+  `FEES_ALERT_USD`, `WAIT_HOURS`, `NEW_RANGE_PCT`, `REMINDER_HOURS`. Ver valores atuais com `gh variable list`.
 - `INITIAL_BASE/QUOTE` = quantidades REALMENTE depositadas (derivar da liquidez on-chain
   se houver dúvida — a tela da Uniswap mostra valores antes do slippage).
 

@@ -210,7 +210,7 @@ def report(r, title):
     return "\n".join(lines)
 
 
-REMINDER_HOURS = 6
+REMINDER_HOURS = float(os.getenv("REMINDER_HOURS", "6"))  # intervalo dos lembretes de fora da faixa
 
 
 def uni_link():

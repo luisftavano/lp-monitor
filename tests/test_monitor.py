@@ -111,6 +111,18 @@ class TestAlerts(unittest.TestCase):
         self.tick(90000, hours=12)
         self.assertEqual(sum("Lembrete" in s for s in self.sent), 1)
 
+    def test_reminder_hours_configurable(self):
+        self.m = load(REMINDER_HOURS="24")
+        self.m.STATE_FILE = Path(self.tmp.name) / "state.json"
+        self.m.send_alert = self.sent.append
+        self.tick(84475)
+        self.tick(90000, hours=0)
+        self.tick(90000, hours=6)            # passo a passo
+        self.tick(90000, hours=12)           # com 6 h já lembraria; com 24 h não
+        self.assertFalse(any("Lembrete" in s for s in self.sent))
+        self.tick(90000, hours=30)
+        self.assertEqual(sum("Lembrete" in s for s in self.sent), 1)
+
     def test_back_before_wait_no_reposition_msg(self):
         self.tick(84475)
         self.tick(90000, hours=0)
