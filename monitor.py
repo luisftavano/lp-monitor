@@ -6,6 +6,7 @@ e manda alerta no WhatsApp (CallMeBot) e/ou Telegram quando algo muda.
 import json
 import math
 import os
+import re
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -182,6 +183,12 @@ def send_alert(text):
                + "&text=" + urllib.parse.quote(text) + "&apikey=" + urllib.parse.quote(APIKEY))
         resp = requests.get(url, timeout=30)
         print("WhatsApp:", resp.status_code)
+        if resp.status_code != 200:
+            # CallMeBot devolve HTML explicando o problema; repo é público, então
+            # tira as tags e esconde números (telefone/apikey) antes de logar.
+            body = re.sub(r"<[^>]+>", " ", resp.text)
+            body = re.sub(r"\d", "#", " ".join(body.split()))
+            print("WhatsApp resposta:", body[:400])
         sent = True
     if TG_TOKEN and TG_CHAT:
         resp = requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
