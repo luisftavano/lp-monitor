@@ -2,7 +2,7 @@
   "position_id": 6148625,
   "fees_alerted": true,
   "last_summary": "2026-11-03",
-  "status": "out_range",
+  "status": "near_edge",
   "il_bad": true,
   "out_since": "2026-10-29T19:57:19.046579-03:00",
   "reposition_sent": true,
