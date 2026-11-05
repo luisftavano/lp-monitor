@@ -175,15 +175,26 @@ def _fetch_position(w3):
 
 
 # ---------------- Alertas ----------------
+DELIVERY_FAILED = False  # algum canal não confirmou a entrega → execução termina com erro
+
+
 def send_alert(text):
+    global DELIVERY_FAILED
     print("----- mensagem -----\n" + text)
     sent = False
     if PHONE and APIKEY:
         url = ("https://api.callmebot.com/whatsapp.php?phone=" + urllib.parse.quote(PHONE)
                + "&text=" + urllib.parse.quote(text) + "&apikey=" + urllib.parse.quote(APIKEY))
-        resp = requests.get(url, timeout=30)
-        print("WhatsApp:", resp.status_code)
-        if resp.status_code != 200:
+        try:
+            resp = requests.get(url, timeout=30)
+        except requests.RequestException as e:
+            print("WhatsApp: erro de conexão:", type(e).__name__)
+            DELIVERY_FAILED = True
+            resp = None
+        if resp is not None:
+            print("WhatsApp:", resp.status_code)
+        if resp is not None and resp.status_code != 200:
+            DELIVERY_FAILED = True
             # CallMeBot devolve HTML explicando o problema; repo é público, então
             # tira as tags e esconde números (telefone/apikey) antes de logar.
             body = re.sub(r"<[^>]+>", " ", resp.text)
@@ -194,6 +205,8 @@ def send_alert(text):
         resp = requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
                              json={"chat_id": TG_CHAT, "text": text}, timeout=30)
         print("Telegram:", resp.status_code)
+        if resp.status_code != 200:
+            DELIVERY_FAILED = True
         sent = True
     if not sent:
         print("(nenhum canal configurado, só imprimindo)")
@@ -412,5 +425,13 @@ def main():
     STATE_FILE.write_text(json.dumps(state, indent=2))
 
 
+def exit_if_undelivered():
+    """Falha a execução (❌ no GitHub → e-mail automático) se alguma mensagem não foi entregue."""
+    if DELIVERY_FAILED:
+        print("ERRO: mensagem não entregue (veja a resposta acima). Estado salvo mesmo assim.")
+        raise SystemExit(1)
+
+
 if __name__ == "__main__":
     main()
+    exit_if_undelivered()

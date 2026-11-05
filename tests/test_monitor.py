@@ -183,6 +183,34 @@ class TestRpcFallback(unittest.TestCase):
             m.with_rpc(fn)
 
 
+class TestDelivery(unittest.TestCase):
+    class Resp:
+        def __init__(self, code, text=""):
+            self.status_code, self.text = code, text
+
+    def make(self, code):
+        m = load(WHATSAPP_PHONE="+550000", CALLMEBOT_APIKEY="k")
+        m.requests.get = lambda url, timeout=30: self.Resp(code, "<p>Account is Paused 123</p>")
+        return m
+
+    def test_paused_account_fails_run(self):
+        m = self.make(208)
+        m.send_alert("oi")
+        self.assertTrue(m.DELIVERY_FAILED)
+        with self.assertRaises(SystemExit):
+            m.exit_if_undelivered()
+
+    def test_ok_delivery_does_not_fail(self):
+        m = self.make(200)
+        m.send_alert("oi")
+        self.assertFalse(m.DELIVERY_FAILED)
+        m.exit_if_undelivered()
+
+    def tearDown(self):
+        import requests
+        importlib.reload(requests)
+
+
 class TestModes(unittest.TestCase):
     def test_run_test_exists(self):
         m = load()
